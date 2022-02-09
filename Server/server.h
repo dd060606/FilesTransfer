@@ -9,7 +9,9 @@ class Server : public QObject
     Q_OBJECT
 public:
     Server();
-    void sendToAll(const QString &message);
+    void sendStringPacket(QTcpSocket *client, const QString &message);
+    QList<QTcpSocket *> getClients();
+
 
 private slots:
     void newConnection();

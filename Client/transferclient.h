@@ -11,7 +11,7 @@ public:
       TransferClient(QString host, qint16 port);
 
   private slots:
-      void sendPacket();
+      void sendStringPacket(QString &message);
       void dataReceived();
       void connect();
       void disconnect();
@@ -24,6 +24,7 @@ public:
       QTcpSocket *socket;
       quint16 messageSize;
       void debug(QString message);
+      void handlePacket(QString &message);
 
 
 };

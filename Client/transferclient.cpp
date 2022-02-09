@@ -15,12 +15,10 @@ TransferClient::TransferClient(QString host, qint16 port): host(host), port(port
 }
 
 
-void TransferClient::sendPacket()
+void TransferClient::sendStringPacket(QString &message)
 {
     QByteArray packet;
     QDataStream out(&packet, QIODevice::WriteOnly);
-
-    QString message = "cc";
 
     out << (quint16) 0;
     out << message;
@@ -52,7 +50,7 @@ void TransferClient::dataReceived()
     QString message;
     in >> message;
 
-    debug(message);
+    this->handlePacket(message);
 }
 
 void TransferClient::connect()
@@ -91,4 +89,12 @@ void TransferClient::socketError(QAbstractSocket::SocketError error)
 }
 void TransferClient::debug(QString message) {
     qDebug().noquote().nospace() << message;
+}
+void TransferClient::handlePacket(QString &message) {
+    if(!message.isEmpty()) {
+        if(message.compare("stop", Qt::CaseInsensitive) == 0) {
+            socket->disconnectFromHost();
+            QCoreApplication::quit();
+        }
+    }
 }

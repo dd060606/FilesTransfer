@@ -54,8 +54,6 @@ void Server::dataReceived()
 }
 void Server::clientDisconnected()
 {
-
-
     QTcpSocket *socket = qobject_cast<QTcpSocket *>(sender());
     if (socket == 0)
         return;
@@ -64,7 +62,7 @@ void Server::clientDisconnected()
 
     socket->deleteLater();
 }
-void Server::sendToAll(const QString &message)
+void Server::sendStringPacket(QTcpSocket *client, const QString &message)
 {
     QByteArray packet;
     QDataStream out(&packet, QIODevice::WriteOnly);
@@ -76,10 +74,15 @@ void Server::sendToAll(const QString &message)
 
     for (int i = 0; i < clients.size(); i++)
     {
-        clients[i]->write(packet);
+        if(clients[i] == client) {
+            clients[i]->write(packet);
+        }
     }
 
 }
 void Server::debug(QString message) {
     qDebug().noquote().nospace() << message << "\n";
+}
+QList<QTcpSocket *> Server::getClients() {
+    return clients;
 }

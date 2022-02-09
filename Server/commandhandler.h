@@ -2,22 +2,27 @@
 #define COMMANDHANDLER_H
 
 #include <QObject>
-#include <QTextStream>
 #include <QDebug>
-#include <QThread>
+#include <QCoreApplication>
+#include "command.h"
+#include "server.h"
+#include "filemanager.h"
 
-class CommandHandler : public QThread {
+class CommandHandler : public QObject
+{
     Q_OBJECT
 public:
-    CommandHandler();
-
+    CommandHandler(Server *server);
+    void handleCommand(const QString &command);
 private:
-    QTextStream ts;
-
-protected:
-    void run();
-private slots:
-    void lineIsReady();
+    void debug(QString message);
+    QList<Command> commandsList;
+    void addCommand(QString command, QString syntax, QString desc);
+    bool isCommandExists(const QString &name);
+    Command getCommandFromName(const QString &name);
+    void showCommandSyntax(const QString &name);
+    Server *server;
+    FileManager fileManager;
 };
 
 #endif // COMMANDHANDLER_H
