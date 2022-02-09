@@ -1,7 +1,6 @@
 #include "server.h"
 
-Server::Server()
-{    
+Server::Server() {
     server = new QTcpServer(this);
     if (!server->listen(QHostAddress::Any, 5000))
     {
@@ -14,8 +13,8 @@ Server::Server()
     }
 
     messageSize = 0;
-
 }
+
 void Server::newConnection()
 {
 
@@ -82,5 +81,5 @@ void Server::sendToAll(const QString &message)
 
 }
 void Server::debug(QString message) {
-    qDebug().noquote().nospace() << message;
+    qDebug().noquote().nospace() << message << "\n";
 }

@@ -16,6 +16,7 @@ private slots:
     void dataReceived();
     void clientDisconnected();
 
+
 private:
     QTcpServer *server;
     QList<QTcpSocket *> clients;

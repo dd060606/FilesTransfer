@@ -3,6 +3,8 @@ QT += network
 
 CONFIG += c++11 console
 CONFIG -= app_bundle
+CONFIG -= console
+
 
 # You can make your code fail to compile if it uses deprecated APIs.
 # In order to do so, uncomment the following line.

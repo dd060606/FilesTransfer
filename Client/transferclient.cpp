@@ -9,7 +9,6 @@ TransferClient::TransferClient(QString host, qint16 port): host(host), port(port
     QObject::connect(socket, SIGNAL(connected()), this, SLOT(connect()));
     QObject::connect(socket, SIGNAL(disconnected()), this, SLOT(disconnect()));
     QObject::connect(socket, SIGNAL(error(QAbstractSocket::SocketError)), this, SLOT(socketError(QAbstractSocket::SocketError)));
-
     messageSize = 0;
     socket->abort();
     socket->connectToHost(host, port);
@@ -58,14 +57,13 @@ void TransferClient::dataReceived()
 
 void TransferClient::connect()
 {
-    debug("Ready for receive files !");
+    debug("Ready to share files !");
 
 }
 
 void TransferClient::disconnect()
 {
     debug("Disconnected !");
-    QTimer::singleShot(30000, this, SLOT(reconnect()));
 }
 void TransferClient::reconnect() {
     messageSize = 0;
@@ -88,6 +86,7 @@ void TransferClient::socketError(QAbstractSocket::SocketError error)
         default:
             debug( "Error" + socket->errorString());
     }
+    QTimer::singleShot(30000, this, SLOT(reconnect()));
 
 }
 void TransferClient::debug(QString message) {
