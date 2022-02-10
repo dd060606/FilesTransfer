@@ -3,7 +3,6 @@
 #include <QObject>
 #include <QtNetwork>
 
-
 class TransferClient : public QObject
 {
     Q_OBJECT
@@ -11,7 +10,7 @@ public:
       TransferClient(QString host, qint16 port);
 
   private slots:
-      void sendStringPacket(QString &message);
+      void sendStringPacket(QString message);
       void dataReceived();
       void connect();
       void disconnect();
@@ -25,6 +24,8 @@ public:
       quint16 messageSize;
       void debug(QString message);
       void handlePacket(QString &message);
+      bool isReceivingFile;
+      QString currentFilePath;
 
 
 };

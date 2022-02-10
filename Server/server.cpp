@@ -1,8 +1,8 @@
 #include "server.h"
 
-Server::Server() {
+Server::Server(qint16 port) {
     server = new QTcpServer(this);
-    if (!server->listen(QHostAddress::Any, 5000))
+    if (!server->listen(QHostAddress::Any, port))
     {
         debug("Error while starting server: " + server->errorString());
     }
@@ -49,7 +49,7 @@ void Server::dataReceived()
     in >> message;
 
 
-    debug(message);
+    this->handlePacket(message);
     messageSize = 0;
 }
 void Server::clientDisconnected()
@@ -85,4 +85,17 @@ void Server::debug(QString message) {
 }
 QList<QTcpSocket *> Server::getClients() {
     return clients;
+}
+void Server::handlePacket(QString &message) {
+    if(!message.isEmpty()) {
+        if(message.startsWith("error:", Qt::CaseInsensitive)) {
+            QStringList list = message.split(":");
+            list.removeFirst();
+            QString error = list.join(":");
+            debug("[Client]: " +error);
+        }
+        if(message.compare("readyToReceive", Qt::CaseInsensitive) == 0) {
+            emit cReadyToReceive();
+        }
+    }
 }

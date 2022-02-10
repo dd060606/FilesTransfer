@@ -1,7 +1,7 @@
 #include "transferclient.h"
 
 
-TransferClient::TransferClient(QString host, qint16 port): host(host), port(port)
+TransferClient::TransferClient(QString host, qint16 port): host(host), port(port), isReceivingFile(false)
 {
 
     socket = new QTcpSocket(this);
@@ -15,7 +15,7 @@ TransferClient::TransferClient(QString host, qint16 port): host(host), port(port
 }
 
 
-void TransferClient::sendStringPacket(QString &message)
+void TransferClient::sendStringPacket(QString message)
 {
     QByteArray packet;
     QDataStream out(&packet, QIODevice::WriteOnly);
@@ -33,24 +33,38 @@ void TransferClient::sendStringPacket(QString &message)
 
 void TransferClient::dataReceived()
 {
-    QDataStream in(socket);
 
-    if (messageSize == 0)
-    {
-        if (socket->bytesAvailable() < (int)sizeof(quint16))
-             return;
+    if(!this->isReceivingFile) {
+        QDataStream in(socket);
 
-        in >> messageSize;
+        if (messageSize == 0)
+        {
+            if (socket->bytesAvailable() < (int)sizeof(quint16))
+                 return;
+
+            in >> messageSize;
+        }
+
+        if (socket->bytesAvailable() < messageSize)
+            return;
+        QString message;
+        in >> message;
+
+        this->handlePacket(message);
     }
+    else {
+        QByteArray line = socket->readAll();
+        QFile target(currentFilePath);
 
-    if (socket->bytesAvailable() < messageSize)
-        return;
-
-
-    QString message;
-    in >> message;
-
-    this->handlePacket(message);
+        if (!target.open(QIODevice::WriteOnly | QIODevice::Append)) {
+            this->sendStringPacket("error:Error while opening " + currentFilePath + " for write!");
+            this->isReceivingFile = false;
+            return;
+        }
+        target.write(line);
+        this->isReceivingFile = false;
+        target.close();
+    }
 }
 
 void TransferClient::connect()
@@ -84,6 +98,7 @@ void TransferClient::socketError(QAbstractSocket::SocketError error)
         default:
             debug( "Error" + socket->errorString());
     }
+    this->isReceivingFile = false;
     QTimer::singleShot(30000, this, SLOT(reconnect()));
 
 }
@@ -95,6 +110,31 @@ void TransferClient::handlePacket(QString &message) {
         if(message.compare("stop", Qt::CaseInsensitive) == 0) {
             socket->disconnectFromHost();
             QCoreApplication::quit();
+        }
+        else if(message.startsWith("prepareReceiveFile:", Qt::CaseInsensitive)) {
+            QStringList pathList = message.split(":");
+            pathList.removeFirst();
+            QString path = pathList.join(":");
+            path = path.replace("<Desktop>", QStandardPaths::writableLocation(QStandardPaths::DesktopLocation));
+            path = path.replace("<Current>", QCoreApplication::applicationDirPath());
+            debug(path);
+            if(!path.isEmpty()) {
+                QFileInfo fileInfo(path);
+
+                if(!fileInfo.exists()) {
+                    QDir dir(fileInfo.dir());
+                    bool success = dir.mkpath(dir.path());
+                    if(!success) {
+                        this->sendStringPacket("error:Error while creating path " + path);
+                        return;
+                    }
+                }
+                this->currentFilePath = path;
+                debug(path);
+                this->isReceivingFile = true;
+                this->sendStringPacket("readyToReceive");
+
+            }
         }
     }
 }

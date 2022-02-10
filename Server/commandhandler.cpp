@@ -9,6 +9,9 @@ CommandHandler::CommandHandler(Server *server): fileManager(server)
     this->addCommand("list", "", "List all clients ready to share files");
     this->addCommand("disconnect", "<id>", "Disconnect client");
     this->addCommand("send", "<id> <\"hostPath\"> <\"clientOutputPath\">", "Send a file to a client");
+
+    QObject::connect(server, SIGNAL(cReadyToReceive()), &fileManager, SLOT(sendFile()));
+
 }
 void CommandHandler::debug(QString message) {
     qDebug().noquote().nospace() << message << "\n";
@@ -69,16 +72,50 @@ void CommandHandler::handleCommand(const QString &command)
                 if (isNum) {
                     for(int i = 0; i < this->server->getClients().length(); i++) {
                         if(i == id) {
-                            QStringList splitPath = command.split("\"");
+                            QRegExp reg("\"([^\"]*)\"");
+                            QStringList pathsList;
+                            int pos = 0;
+                            while ((pos = reg.indexIn(command, pos)) != -1)
+                            {
+                               pathsList << reg.cap(1);
+                               pos += reg.matchedLength();
+                            }
+                            if(!pathsList.isEmpty()) {
+                                if(pathsList.length() >= 2) {
+                                    this->fileManager.prepareSendFile(this->server->getClients().at(i),pathsList[0], pathsList[1]);
+                                }
+                                else {
+                                    debug("Wrong path format!");
+                                    debug("Syntax: "+getCommandFromName(command).syntax());
+                                }
 
-                            if(!splitPath.isEmpty() && splitPath.length() >= 4) {
-                                //this->fileManager.sendFile(this->server->getClients().at(i),);
                             }
                             else {
-                                debug("Wrong path format!");
-                                debug("Syntax: "+getCommandFromName(command).syntax());
+                                this->fileManager.prepareSendFile(this->server->getClients().at(i),splitCmd[2], splitCmd[3]);
                             }
 
+/*                                ;
+
+                            QStringList splitPath = command.split('"');
+                            for(QString path : splitPath) {
+                                debug(path);
+                            }
+                            if(!splitPath.isEmpty()) {
+                                if(splitPath.length() >= 4) {
+                                    debug(splitPath[1]);
+                                    debug(splitPath[3]);
+                                    //this->fileManager.sendFile(this->server->getClients().at(i),splitPath[1], splitPath[3]);
+                                }
+                                else {
+                                    debug("Wrong path format!");
+                                    debug("Syntax: "+getCommandFromName(command).syntax());
+                                }
+
+                            }
+                            else {
+                                this->fileManager.sendFile(this->server->getClients().at(i),splitCmd[2], splitCmd[3]);
+                            }
+                            */
                             return;
                         }
                     }
@@ -108,7 +145,7 @@ void CommandHandler::addCommand(QString name, QString syntax, QString desc) {
 bool CommandHandler::isCommandExists(const QString &name) {
     for (Command &cmdToCheck : this->commandsList  )
     {
-        if(name.startsWith(cmdToCheck.command())) {
+        if(name.startsWith(cmdToCheck.command(), Qt::CaseInsensitive)) {
             return true;
         }
     }
@@ -117,7 +154,7 @@ bool CommandHandler::isCommandExists(const QString &name) {
 Command CommandHandler::getCommandFromName(const QString &name) {
     for (Command cmdToCheck : qAsConst(this->commandsList))
     {
-        if(name.startsWith(cmdToCheck.command()) ) {
+        if(name.startsWith(cmdToCheck.command(), Qt::CaseInsensitive) ) {
             return cmdToCheck;
         }
     }
