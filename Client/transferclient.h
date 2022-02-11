@@ -26,6 +26,10 @@ public:
       void handlePacket(QString &message);
       bool isReceivingFile;
       QString currentFilePath;
+      QByteArray inBlock;
+      qint64 totalSize;
+      qint64 byteReceived;
+      QFile *file;
 
 
 };

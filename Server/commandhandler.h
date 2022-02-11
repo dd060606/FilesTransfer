@@ -16,11 +16,14 @@ public:
     void handleCommand(const QString &command);
 private:
     void debug(QString message);
-    QList<Command> commandsList;
     void addCommand(QString command, QString syntax, QString desc);
     bool isCommandExists(const QString &name);
     Command getCommandFromName(const QString &name);
     void showCommandSyntax(const QString &name);
+    void handleDebugCommand(const QString &command);
+    int getClientIdFromCommand(const QString &command);
+
+    QList<Command> commandsList;
     Server *server;
     FileManager fileManager;
 };

@@ -9,6 +9,7 @@ CommandHandler::CommandHandler(Server *server): fileManager(server)
     this->addCommand("list", "", "List all clients ready to share files");
     this->addCommand("disconnect", "<id>", "Disconnect client");
     this->addCommand("send", "<id> <\"hostPath\"> <\"clientOutputPath\">", "Send a file to a client");
+    this->addCommand("debug-send-packet", "<id> <packet-value>", "Send a string packet to a client");
 
     QObject::connect(server, SIGNAL(cReadyToReceive()), &fileManager, SLOT(sendFile()));
 
@@ -43,22 +44,15 @@ void CommandHandler::handleCommand(const QString &command)
             }
         }
         else if (command.startsWith("disconnect", Qt::CaseInsensitive)) {
-            QStringList splitCmd = command.split(" ");
-            if(splitCmd.length() >= 2) {
-                bool isNum;
-                int id = splitCmd[1].toInt(&isNum);
-                if (isNum) {
-                    for(int i = 0; i < this->server->getClients().length(); i++) {
-                        if(i == id) {
-                            this->server->sendStringPacket(this->server->getClients().at(i), "stop");
-                            return;
-                        }
+            int id = getClientIdFromCommand(command);
+            if(id != -1) {
+                for(int i = 0; i < this->server->getClients().length(); i++) {
+                    if(i == id) {
+                        this->server->sendStringPacket(this->server->getClients().at(i), "stop");
+                        return;
                     }
-                    debug("Client " +splitCmd[1]+" not found!");
                 }
-                else {
-                    showCommandSyntax(command);
-                }
+                debug("Client " +QString::number(id)+" not found!");
             }
             else {
                 showCommandSyntax(command);
@@ -67,9 +61,8 @@ void CommandHandler::handleCommand(const QString &command)
         else if (command.startsWith("send", Qt::CaseInsensitive)) {
             QStringList splitCmd = command.split(" ");
             if(splitCmd.length() >= 4) {
-                bool isNum;
-                int id = splitCmd[1].toInt(&isNum);
-                if (isNum) {
+                int id = getClientIdFromCommand(command);
+                if(id != -1) {
                     for(int i = 0; i < this->server->getClients().length(); i++) {
                         if(i == id) {
                             QRegExp reg("\"([^\"]*)\"");
@@ -93,29 +86,6 @@ void CommandHandler::handleCommand(const QString &command)
                             else {
                                 this->fileManager.prepareSendFile(this->server->getClients().at(i),splitCmd[2], splitCmd[3]);
                             }
-
-/*                                ;
-
-                            QStringList splitPath = command.split('"');
-                            for(QString path : splitPath) {
-                                debug(path);
-                            }
-                            if(!splitPath.isEmpty()) {
-                                if(splitPath.length() >= 4) {
-                                    debug(splitPath[1]);
-                                    debug(splitPath[3]);
-                                    //this->fileManager.sendFile(this->server->getClients().at(i),splitPath[1], splitPath[3]);
-                                }
-                                else {
-                                    debug("Wrong path format!");
-                                    debug("Syntax: "+getCommandFromName(command).syntax());
-                                }
-
-                            }
-                            else {
-                                this->fileManager.sendFile(this->server->getClients().at(i),splitCmd[2], splitCmd[3]);
-                            }
-                            */
                             return;
                         }
                     }
@@ -129,12 +99,37 @@ void CommandHandler::handleCommand(const QString &command)
                 showCommandSyntax(command);
             }
         }
+        else if (command.startsWith("debug", Qt::CaseInsensitive)) {
+            this->handleDebugCommand(command);
+        }
     }
     else {
         debug("Command not found!");
     }
 }
-
+void CommandHandler::handleDebugCommand(const QString &command) {
+    if (command.startsWith("debug-send-packet", Qt::CaseInsensitive)) {
+        int id = getClientIdFromCommand(command);
+        if(id != -1) {
+            QStringList splitCmd = command.split(" ");
+            if(splitCmd.length() >= 3) {
+                for(int i = 0; i < this->server->getClients().length(); i++) {
+                    if(i == id) {
+                        this->server->sendStringPacket(this->server->getClients().at(i), splitCmd[2]);
+                        return;
+                    }
+                }
+                debug("Client " +QString::number(id)+" not found!");
+            }
+            else {
+                showCommandSyntax(command);
+            }
+        }
+        else {
+            showCommandSyntax(command);
+        }
+    }
+}
 
 void CommandHandler::addCommand(QString name, QString syntax, QString desc) {
     if(isCommandExists(name)) {
@@ -161,4 +156,15 @@ Command CommandHandler::getCommandFromName(const QString &name) {
 }
 void CommandHandler::showCommandSyntax(const QString &name) {
     debug("Error, the syntax is: " + getCommandFromName(name).syntax());
+}
+int CommandHandler::getClientIdFromCommand(const QString &command) {
+    QStringList splitCmd = command.split(" ");
+    if(splitCmd.length() >= 2) {
+        bool isNum;
+        int id = splitCmd[1].toInt(&isNum);
+        if (isNum) {
+            return id;
+        }
+    }
+    return -1;
 }

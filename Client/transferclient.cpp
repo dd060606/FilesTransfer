@@ -10,6 +10,11 @@ TransferClient::TransferClient(QString host, qint16 port): host(host), port(port
     QObject::connect(socket, SIGNAL(disconnected()), this, SLOT(disconnect()));
     QObject::connect(socket, SIGNAL(error(QAbstractSocket::SocketError)), this, SLOT(socketError(QAbstractSocket::SocketError)));
     messageSize = 0;
+
+    inBlock.clear();
+    byteReceived = 0;
+    totalSize = 0;
+
     socket->abort();
     socket->connectToHost(host, port);
 }
@@ -33,9 +38,9 @@ void TransferClient::sendStringPacket(QString message)
 
 void TransferClient::dataReceived()
 {
+    QDataStream in(socket);
 
     if(!this->isReceivingFile) {
-        QDataStream in(socket);
 
         if (messageSize == 0)
         {
@@ -53,6 +58,34 @@ void TransferClient::dataReceived()
         this->handlePacket(message);
     }
     else {
+        if (byteReceived == 0)
+        {
+
+            in >> totalSize >> byteReceived;
+            file = new QFile(currentFilePath);
+            file->open(QFile::WriteOnly);
+            debug("First");
+        }
+        else
+        {
+            inBlock = socket->readAll();
+
+            byteReceived += inBlock.size();
+            debug(QString::number(byteReceived));
+
+            file->write(inBlock);
+            file->flush();
+        }
+        if (byteReceived == totalSize)
+        {
+            inBlock.clear();
+            byteReceived = 0;
+            totalSize = 0;
+            this->isReceivingFile = false;
+            file->close();
+            debug("Finish!");
+        }
+        /*
         QByteArray line = socket->readAll();
         QFile target(currentFilePath);
 
@@ -64,7 +97,9 @@ void TransferClient::dataReceived()
         target.write(line);
         this->isReceivingFile = false;
         target.close();
+        */
     }
+    messageSize = 0;
 }
 
 void TransferClient::connect()
@@ -123,18 +158,16 @@ void TransferClient::handlePacket(QString &message) {
 
                 if(!fileInfo.exists()) {
                     QDir dir(fileInfo.dir());
-                    bool success = dir.mkpath(dir.path());
-                    if(!success) {
-                        this->sendStringPacket("error:Error while creating path " + path);
-                        return;
-                    }
+                    dir.mkpath(dir.path());
                 }
                 this->currentFilePath = path;
                 debug(path);
                 this->isReceivingFile = true;
                 this->sendStringPacket("readyToReceive");
-
             }
+        }
+        else {
+            debug(message);
         }
     }
 }

@@ -20,8 +20,12 @@ void FileManager::prepareSendFile(QTcpSocket *client, QString &hostPath, QString
     if(!clientFileInfo.isFile()) {
         clientOutputPath = QDir::cleanPath(clientOutputPath + QDir::separator() + hostInfo.fileName());
     }
-    QFile file(hostPath);
-    if(file.open(QIODevice::ReadOnly | QIODevice::Text)){
+    byteToWrite = 0;
+    totalSize = 0;
+    outBlock.clear();
+    hostFile = new QFile(hostPath);
+
+    if(hostFile->open(QFile::ReadOnly)){
         server->sendStringPacket(client, "prepareReceiveFile:" + clientOutputPath);
         debug("Sending file from " + hostPath + " to " + clientOutputPath + " ...");
 
@@ -32,7 +36,6 @@ void FileManager::prepareSendFile(QTcpSocket *client, QString &hostPath, QString
         debug("Error while opening host file!");
         server->sendStringPacket(client, "error");
     }
-    file.close();
 
 
 }
@@ -40,8 +43,37 @@ void FileManager::debug(QString message) {
     qDebug().noquote().nospace() << message << "\n";
 }
 void FileManager::sendFile() {
-    QFile file(this->currentHostPath);
+
+    connect(currentClient, SIGNAL(bytesWritten(qint64)), this, SLOT(goOnSend(qint64)));
+    /*
     file.open(QIODevice::ReadOnly | QIODevice::Text);
     QByteArray q = file.readAll();
     this->currentClient->write(q);
+    */
+    byteToWrite = hostFile->size();
+    totalSize = hostFile->size();
+    QDataStream out(&outBlock, QIODevice::WriteOnly);
+
+    out << qint64 (0) << qint64 (0);
+
+    totalSize += outBlock.size();
+    byteToWrite += outBlock.size();
+
+    out.device()->seek(0);
+    out << totalSize << qint64(outBlock.size());
+
+    currentClient->write(outBlock);
+}
+void FileManager::goOnSend(qint64 numBytes)
+{
+    byteToWrite-= numBytes;
+    outBlock = hostFile->read(qMin(byteToWrite, static_cast<qint64>(4*1024)));
+
+    currentClient->write(outBlock);
+
+    if(byteToWrite == 0) {
+        debug("File sending completed!");
+        hostFile->close();
+        disconnect(currentClient, SIGNAL(bytesWritten(qint64)), this, SLOT(goOnSend(qint64)));
+    }
 }
