@@ -6,6 +6,7 @@
 #include "commandhandler.h"
 #include "qconsolelistener.h"
 
+
 const QString VERSION = "1.0";
 
 void debug(QString message) {
@@ -15,6 +16,7 @@ void debug(QString message) {
 int main(int argc, char *argv[])
 {
     QCoreApplication a(argc, argv);
+
 
     debug("Weclome to FilesTransfer " + VERSION);
     int port = 55630;

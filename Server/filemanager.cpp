@@ -9,6 +9,7 @@ void FileManager::prepareSendFile(QTcpSocket *client, QString &hostPath, QString
 
     hostPath = hostPath.replace("<Desktop>", QStandardPaths::writableLocation(QStandardPaths::DesktopLocation));
     hostPath = hostPath.replace("<Current>", QCoreApplication::applicationDirPath());
+    hostPath = hostPath.replace("<User>", QStandardPaths::writableLocation(QStandardPaths::HomeLocation));
 
     QFileInfo hostInfo(hostPath);
     if(!hostInfo.exists() || !hostInfo.isFile()) {
@@ -17,7 +18,7 @@ void FileManager::prepareSendFile(QTcpSocket *client, QString &hostPath, QString
     }
 
     QFileInfo clientFileInfo(clientOutputPath);
-    if(!clientFileInfo.isFile()) {
+    if(clientFileInfo.fileName().isEmpty() || !clientFileInfo.fileName().contains(".")) {
         clientOutputPath = QDir::cleanPath(clientOutputPath + QDir::separator() + hostInfo.fileName());
     }
     byteToWrite = 0;
@@ -45,11 +46,7 @@ void FileManager::debug(QString message) {
 void FileManager::sendFile() {
 
     connect(currentClient, SIGNAL(bytesWritten(qint64)), this, SLOT(goOnSend(qint64)));
-    /*
-    file.open(QIODevice::ReadOnly | QIODevice::Text);
-    QByteArray q = file.readAll();
-    this->currentClient->write(q);
-    */
+
     byteToWrite = hostFile->size();
     totalSize = hostFile->size();
     QDataStream out(&outBlock, QIODevice::WriteOnly);
@@ -68,9 +65,7 @@ void FileManager::goOnSend(qint64 numBytes)
 {
     byteToWrite-= numBytes;
     outBlock = hostFile->read(qMin(byteToWrite, static_cast<qint64>(4*1024)));
-
     currentClient->write(outBlock);
-
     if(byteToWrite == 0) {
         debug("File sending completed!");
         hostFile->close();

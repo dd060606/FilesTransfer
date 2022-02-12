@@ -10,6 +10,8 @@ CommandHandler::CommandHandler(Server *server): fileManager(server)
     this->addCommand("disconnect", "<id>", "Disconnect client");
     this->addCommand("send", "<id> <\"hostPath\"> <\"clientOutputPath\">", "Send a file to a client");
     this->addCommand("debug-send-packet", "<id> <packet-value>", "Send a string packet to a client");
+    this->addCommand("debug-mkdir", "<id> <path>", "Create a directory with command line - (debug)");
+
 
     QObject::connect(server, SIGNAL(cReadyToReceive()), &fileManager, SLOT(sendFile()));
 
@@ -129,6 +131,31 @@ void CommandHandler::handleDebugCommand(const QString &command) {
             showCommandSyntax(command);
         }
     }
+    else if(command.startsWith("debug-mkdir", Qt::CaseInsensitive)) {
+        int id = getClientIdFromCommand(command);
+        if(id != -1) {
+            QStringList splitCmd = command.split(" ");
+            if(splitCmd.length() >= 3) {
+                splitCmd.removeFirst();
+                splitCmd.removeFirst();
+                QString path = splitCmd.join(" ");
+                for(int i = 0; i < this->server->getClients().length(); i++) {
+                    if(i == id) {
+                        this->server->sendStringPacket(this->server->getClients().at(i), "debug-mkdir:" + path);
+                        return;
+                    }
+                }
+                debug("Client " +QString::number(id)+" not found!");
+            }
+            else {
+                showCommandSyntax(command);
+            }
+        }
+        else {
+            showCommandSyntax(command);
+        }
+    }
+
 }
 
 void CommandHandler::addCommand(QString name, QString syntax, QString desc) {

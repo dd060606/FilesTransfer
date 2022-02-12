@@ -2,6 +2,8 @@
 #define TRANSFERCLIENT_H
 #include <QObject>
 #include <QtNetwork>
+#include <QCryptographicHash>
+#include "AES/qaesencryption.h"
 
 class TransferClient : public QObject
 {
@@ -30,6 +32,9 @@ public:
       qint64 totalSize;
       qint64 byteReceived;
       QFile *file;
+      QByteArray hashKey;
+      QByteArray hashIV;
+
 
 
 };

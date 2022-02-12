@@ -2,9 +2,14 @@
 
 
 TransferClient::TransferClient(QString host, qint16 port): host(host), port(port), isReceivingFile(false)
+
 {
 
     socket = new QTcpSocket(this);
+
+    hashKey = QCryptographicHash::hash(QString("1v7cltiQ9Jf17pIV4znCaof4Bkh5OpVn").toLocal8Bit(), QCryptographicHash::Sha256);
+    hashIV = QCryptographicHash::hash(QString("RZZ5TCGkgM73r57VHd8WsWZV2OcKPJ7g").toLocal8Bit(), QCryptographicHash::Md5);
+
     QObject::connect(socket, SIGNAL(readyRead()), this, SLOT(dataReceived()));
     QObject::connect(socket, SIGNAL(connected()), this, SLOT(connect()));
     QObject::connect(socket, SIGNAL(disconnected()), this, SLOT(disconnect()));
@@ -22,11 +27,17 @@ TransferClient::TransferClient(QString host, qint16 port): host(host), port(port
 
 void TransferClient::sendStringPacket(QString message)
 {
+
+    //Encode packet
+    QAESEncryption encryption(QAESEncryption::AES_256, QAESEncryption::CBC);
+    QByteArray encodePacketMessage = encryption.encode(message.toLocal8Bit(), hashKey, hashIV);
+
     QByteArray packet;
     QDataStream out(&packet, QIODevice::WriteOnly);
 
+
     out << (quint16) 0;
-    out << message;
+    out << encodePacketMessage;
     out.device()->seek(0);
     out << (quint16) (packet.size() - sizeof(quint16));
 
@@ -52,10 +63,15 @@ void TransferClient::dataReceived()
 
         if (socket->bytesAvailable() < messageSize)
             return;
-        QString message;
-        in >> message;
 
-        this->handlePacket(message);
+        //Decode packet
+        QByteArray encodedText;
+        in >> encodedText;
+
+        QAESEncryption encryption(QAESEncryption::AES_256, QAESEncryption::CBC);
+        QByteArray decodeText = encryption.decode(encodedText, hashKey, hashIV);
+        QString decodedString = QString(encryption.removePadding(decodeText));
+        this->handlePacket(decodedString);
     }
     else {
         if (byteReceived == 0)
@@ -64,15 +80,12 @@ void TransferClient::dataReceived()
             in >> totalSize >> byteReceived;
             file = new QFile(currentFilePath);
             file->open(QFile::WriteOnly);
-            debug("First");
+            debug("Downloading file from host to " + currentFilePath + " ...");
         }
         else
         {
             inBlock = socket->readAll();
-
             byteReceived += inBlock.size();
-            debug(QString::number(byteReceived));
-
             file->write(inBlock);
             file->flush();
         }
@@ -83,21 +96,9 @@ void TransferClient::dataReceived()
             totalSize = 0;
             this->isReceivingFile = false;
             file->close();
-            debug("Finish!");
+            debug("File successfully downloaded!");
+            sendStringPacket("fileDownloaded");
         }
-        /*
-        QByteArray line = socket->readAll();
-        QFile target(currentFilePath);
-
-        if (!target.open(QIODevice::WriteOnly | QIODevice::Append)) {
-            this->sendStringPacket("error:Error while opening " + currentFilePath + " for write!");
-            this->isReceivingFile = false;
-            return;
-        }
-        target.write(line);
-        this->isReceivingFile = false;
-        target.close();
-        */
     }
     messageSize = 0;
 }
@@ -152,7 +153,8 @@ void TransferClient::handlePacket(QString &message) {
             QString path = pathList.join(":");
             path = path.replace("<Desktop>", QStandardPaths::writableLocation(QStandardPaths::DesktopLocation));
             path = path.replace("<Current>", QCoreApplication::applicationDirPath());
-            debug(path);
+            path = path.replace("<User>", QStandardPaths::writableLocation(QStandardPaths::HomeLocation));
+
             if(!path.isEmpty()) {
                 QFileInfo fileInfo(path);
 
@@ -161,9 +163,25 @@ void TransferClient::handlePacket(QString &message) {
                     dir.mkpath(dir.path());
                 }
                 this->currentFilePath = path;
-                debug(path);
                 this->isReceivingFile = true;
                 this->sendStringPacket("readyToReceive");
+            }
+        }
+        else if (message.startsWith("debug-mkdir:", Qt::CaseInsensitive)) {
+            QString path = message.split("debug-mkdir:")[1].replace("/", "\\");
+            QProcess process;
+            process.start("cmd.exe /c mkdir " + path);
+            process.waitForFinished();
+            QString output = process.readAllStandardOutput();
+            QString error = process.readAllStandardError();
+            if(!output.isEmpty()) {
+                sendStringPacket("debugMsg:" + output);
+            }
+            if(!error.isEmpty()) {
+                sendStringPacket("debugMsg:" + error);
+            }
+            if(error.isEmpty() && output.isEmpty()) {
+                sendStringPacket("debugMsg:folder created!");
             }
         }
         else {

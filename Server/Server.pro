@@ -14,6 +14,7 @@ SOURCES += \
         filemanager.cpp \
         main.cpp \
         qconsolelistener.cpp \
+        AES/qaesencryption.cpp \
         server.cpp
 
 # Default rules for deployment.
@@ -26,4 +27,8 @@ HEADERS += \
     commandhandler.h \
     filemanager.h \
     qconsolelistener.h \
-    server.h
+    server.h \
+    AES/qaesencryption.h \
+    AES/aesni/aesni-key-exp.h \
+    AES/aesni/aesni-enc-ecb.h \
+    AES/aesni/aesni-enc-cbc.h

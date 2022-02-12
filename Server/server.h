@@ -4,6 +4,10 @@
 #include <QObject>
 #include <QtNetwork>
 
+#include <QCryptographicHash>
+#include "AES/qaesencryption.h"
+
+
 class Server : public QObject
 {
     Q_OBJECT
@@ -24,6 +28,8 @@ private:
     QTcpServer *server;
     QList<QTcpSocket *> clients;
     quint16 messageSize;
+    QByteArray hashKey;
+    QByteArray hashIV;
     void debug(QString message);
     void handlePacket(QString &message);
 

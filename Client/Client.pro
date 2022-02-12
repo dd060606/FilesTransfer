@@ -11,6 +11,7 @@ CONFIG -= app_bundle
 
 SOURCES += \
         main.cpp \
+        AES/qaesencryption.cpp \
         transferclient.cpp
 
 # Default rules for deployment.
@@ -19,4 +20,8 @@ else: unix:!android: target.path = /opt/$${TARGET}/bin
 !isEmpty(target.path): INSTALLS += target
 
 HEADERS += \
-    transferclient.h
+    transferclient.h \
+    AES/qaesencryption.h \
+    AES/aesni/aesni-key-exp.h \
+    AES/aesni/aesni-enc-ecb.h \
+    AES/aesni/aesni-enc-cbc.h
