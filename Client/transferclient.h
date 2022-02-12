@@ -10,14 +10,17 @@ class TransferClient : public QObject
     Q_OBJECT
 public:
       TransferClient(QString host, qint16 port);
-
-  private slots:
+      void prepareSendFile(QString &clientPath);
+      void sendFile();
+  public slots:
       void sendStringPacket(QString message);
+  private slots:
       void dataReceived();
       void connect();
       void disconnect();
       void socketError(QAbstractSocket::SocketError error);
       void reconnect();
+      void goOnSend(qint64);
 
   private:
       QString host;
@@ -34,6 +37,13 @@ public:
       QFile *file;
       QByteArray hashKey;
       QByteArray hashIV;
+
+      //File Sender
+      QByteArray outBlock;
+      qint64 byteToWrite;
+      qint64 totalSizeToSend;
+      QFile *clientFileToSend;
+      QString clientPathToSend;
 
 
 

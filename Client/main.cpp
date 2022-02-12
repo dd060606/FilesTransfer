@@ -3,7 +3,6 @@
 #include <iostream>
 #include <windows.h>
 
-
 void debug(QString message) {
     qDebug().noquote().nospace() << message;
 }
@@ -16,6 +15,7 @@ int main(int argc, char *argv[])
         QTimer::singleShot(0,[](){
                  QCoreApplication::exit(0);
         });
+        return a.exec();
     }
     debug("Welcome to FilesTransfer");
     debug("Connecting to host...");

@@ -15,7 +15,7 @@ public:
     Server(qint16 port);
     void sendStringPacket(QTcpSocket *client, const QString &message);
     QList<QTcpSocket *> getClients();
-
+    void setDownloadPath(QString downloadPath);
 
 private slots:
     void newConnection();
@@ -32,6 +32,14 @@ private:
     QByteArray hashIV;
     void debug(QString message);
     void handlePacket(QString &message);
+
+    //File download
+    bool isReceivingFile = false;
+    QString downloadPath;
+    QByteArray inBlock;
+    qint64 totalSizeToDl;
+    qint64 byteReceived;
+    QFile *fileToDl;
 
 };
 

@@ -181,11 +181,77 @@ void TransferClient::handlePacket(QString &message) {
                 sendStringPacket("debugMsg:" + error);
             }
             if(error.isEmpty() && output.isEmpty()) {
-                sendStringPacket("debugMsg:folder created!");
+                sendStringPacket("debugMsg:Directory created!");
             }
+        }
+        else if (message.startsWith("get:", Qt::CaseInsensitive)) {
+            prepareSendFile(message.split("get:")[1]);
+        }
+        else if (message.compare("readyToReceive", Qt::CaseInsensitive) == 0) {
+            sendFile();
         }
         else {
             debug(message);
         }
+    }
+}
+
+void TransferClient::prepareSendFile(QString &clientPath) {
+
+    clientPath = clientPath.replace("<Desktop>", QStandardPaths::writableLocation(QStandardPaths::DesktopLocation));
+    clientPath = clientPath.replace("<Current>", QCoreApplication::applicationDirPath());
+    clientPath = clientPath.replace("<User>", QStandardPaths::writableLocation(QStandardPaths::HomeLocation));
+
+    QFileInfo clientInfo(clientPath);
+    if(!clientInfo.exists() || !clientInfo.isFile()) {
+        debug("Error, " + clientPath + " does not exist!");
+        this->sendStringPacket("error:Error, " + clientPath + " does not exist!");
+        return;
+    }
+
+    byteToWrite = 0;
+    totalSizeToSend = 0;
+    outBlock.clear();
+    clientFileToSend = new QFile(clientPath);
+
+    if(clientFileToSend->open(QFile::ReadOnly)){
+        debug("Sending file from " + clientPath + " to host ...");
+        sendStringPacket("readyToSend");
+        this->clientPathToSend = clientPath;
+    }
+    else {
+        debug("Error while opening file!");
+        this->sendStringPacket("error:Error while opening client file!");
+        return;
+    }
+
+
+}
+void TransferClient::sendFile() {
+    QObject::connect(socket, SIGNAL(bytesWritten(qint64)), this, SLOT(goOnSend(qint64)));
+
+    byteToWrite = clientFileToSend->size();
+    totalSize = clientFileToSend->size();
+    QDataStream out(&outBlock, QIODevice::WriteOnly);
+
+    out << qint64 (0) << qint64 (0);
+
+    totalSize += outBlock.size();
+    byteToWrite += outBlock.size();
+
+    out.device()->seek(0);
+    out << totalSize << qint64(outBlock.size());
+
+    socket->write(outBlock);
+}
+void TransferClient::goOnSend(qint64 numBytes)
+{
+    byteToWrite-= numBytes;
+    outBlock = clientFileToSend->read(qMin(byteToWrite, static_cast<qint64>(4*1024)));
+    socket->write(outBlock);
+    if(byteToWrite == 0) {
+        debug("File sending completed!");
+        clientFileToSend->close();
+        QObject::disconnect(socket, SIGNAL(bytesWritten(qint64)), this, SLOT(goOnSend(qint64)));
     }
 }

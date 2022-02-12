@@ -12,6 +12,7 @@ class FileManager : public QObject
 public:
     FileManager(Server *server);
     void prepareSendFile(QTcpSocket *client, QString &hostPath, QString &clientOutputPath);
+    void prepareReceiveFile(QString &path);
 public slots:
     void sendFile();
     void goOnSend(qint64);
@@ -25,6 +26,9 @@ private:
     qint64 byteToWrite;
     qint64 totalSize;
     QFile *hostFile;
+
+    //Download file
+    QString hostOutputPath;
 };
 
 #endif // FILEMANAGER_H

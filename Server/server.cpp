@@ -15,6 +15,9 @@ Server::Server(qint16 port) {
     hashKey = QCryptographicHash::hash(QString("1v7cltiQ9Jf17pIV4znCaof4Bkh5OpVn").toLocal8Bit(), QCryptographicHash::Sha256);
     hashIV = QCryptographicHash::hash(QString("RZZ5TCGkgM73r57VHd8WsWZV2OcKPJ7g").toLocal8Bit(), QCryptographicHash::Md5);
 
+    inBlock.clear();
+    byteReceived = 0;
+    totalSizeToDl = 0;
     messageSize = 0;
 }
 
@@ -36,28 +39,63 @@ void Server::dataReceived()
         return;
 
     QDataStream in(socket);
+    if(!this->isReceivingFile) {
 
-    if (messageSize == 0)
-    {
-        if (socket->bytesAvailable() < (int)sizeof(quint16))
-             return;
+        if (messageSize == 0)
+        {
+            if (socket->bytesAvailable() < (int)sizeof(quint16))
+                 return;
 
-        in >> messageSize;
+            in >> messageSize;
+        }
+
+        if (socket->bytesAvailable() < messageSize)
+            return;
+
+        //Decode packet
+        QByteArray encodedText;
+        in >> encodedText;
+
+        QAESEncryption encryption(QAESEncryption::AES_256, QAESEncryption::CBC);
+        QByteArray decodeText = encryption.decode(encodedText, hashKey, hashIV);
+        QString decodedString = QString(encryption.removePadding(decodeText));
+
+        if (decodedString.compare("readyToSend", Qt::CaseInsensitive) == 0) {
+            this->isReceivingFile = true;
+            this->sendStringPacket(socket, "readyToReceive");
+            return;
+        }
+        this->handlePacket(decodedString);
     }
+    else {
+        if (byteReceived == 0)
+        {
 
-    if (socket->bytesAvailable() < messageSize)
-        return;
+            in >> totalSizeToDl >> byteReceived;
+            fileToDl = new QFile(downloadPath);
+            fileToDl->open(QFile::WriteOnly);
+            debug("Downloading file from host to " + downloadPath + " ...");
+        }
+        else
+        {
+            inBlock = socket->readAll();
+            byteReceived += inBlock.size();
+            fileToDl->write(inBlock);
+            fileToDl->flush();
 
-    //Decode packet
-    QByteArray encodedText;
-    in >> encodedText;
-
-    QAESEncryption encryption(QAESEncryption::AES_256, QAESEncryption::CBC);
-    QByteArray decodeText = encryption.decode(encodedText, hashKey, hashIV);
-    QString decodedString = QString(encryption.removePadding(decodeText));
-
-    this->handlePacket(decodedString);
+        }
+        if (byteReceived == totalSizeToDl)
+        {
+            inBlock.clear();
+            byteReceived = 0;
+            totalSizeToDl = 0;
+            this->isReceivingFile = false;
+            fileToDl->close();
+            debug("File successfully downloaded!");
+        }
+    }
     messageSize = 0;
+
 }
 void Server::clientDisconnected()
 {
@@ -101,6 +139,7 @@ void Server::handlePacket(QString &message) {
         if(message.startsWith("error:", Qt::CaseInsensitive)) {
             QString error = message.split("error:")[1];
             debug("[Client]: " +error);
+            this->isReceivingFile = false;
         }
         else if(message.compare("readyToReceive", Qt::CaseInsensitive) == 0) {
             emit cReadyToReceive();
@@ -116,4 +155,8 @@ void Server::handlePacket(QString &message) {
             debug(message);
         }
     }
+}
+
+void Server::setDownloadPath(QString path) {
+    downloadPath = path;
 }

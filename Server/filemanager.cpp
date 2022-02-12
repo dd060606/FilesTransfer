@@ -72,3 +72,20 @@ void FileManager::goOnSend(qint64 numBytes)
         disconnect(currentClient, SIGNAL(bytesWritten(qint64)), this, SLOT(goOnSend(qint64)));
     }
 }
+
+void FileManager::prepareReceiveFile(QString &path) {
+    path = path.replace("<Desktop>", QStandardPaths::writableLocation(QStandardPaths::DesktopLocation));
+    path = path.replace("<Current>", QCoreApplication::applicationDirPath());
+    path = path.replace("<User>", QStandardPaths::writableLocation(QStandardPaths::HomeLocation));
+    if(!path.isEmpty()) {
+        QFileInfo fileInfo(path);
+
+        if(!fileInfo.exists()) {
+            QDir dir(fileInfo.dir());
+            dir.mkpath(dir.path());
+        }
+        hostOutputPath = path;
+        this->server->setDownloadPath(path);
+    }
+
+}

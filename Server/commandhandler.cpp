@@ -9,6 +9,8 @@ CommandHandler::CommandHandler(Server *server): fileManager(server)
     this->addCommand("list", "", "List all clients ready to share files");
     this->addCommand("disconnect", "<id>", "Disconnect client");
     this->addCommand("send", "<id> <\"hostPath\"> <\"clientOutputPath\">", "Send a file to a client");
+    this->addCommand("get", "<id> <\"clientPath\"> <\"hostOutputPath\">", "Receive a file from a client");
+    //Debug commands
     this->addCommand("debug-send-packet", "<id> <packet-value>", "Send a string packet to a client");
     this->addCommand("debug-mkdir", "<id> <path>", "Create a directory with command line - (debug)");
 
@@ -87,6 +89,61 @@ void CommandHandler::handleCommand(const QString &command)
                             }
                             else {
                                 this->fileManager.prepareSendFile(this->server->getClients().at(i),splitCmd[2], splitCmd[3]);
+                            }
+                            return;
+                        }
+                    }
+                    debug("Client " +splitCmd[1]+" not found!");
+                }
+                else {
+                    showCommandSyntax(command);
+                }
+            }
+            else {
+                showCommandSyntax(command);
+            }
+        }
+        else if (command.startsWith("get", Qt::CaseInsensitive)) {
+            QStringList splitCmd = command.split(" ");
+            if(splitCmd.length() >= 4) {
+                int id = getClientIdFromCommand(command);
+                if(id != -1) {
+                    for(int i = 0; i < this->server->getClients().length(); i++) {
+                        if(i == id) {
+                            QRegExp reg("\"([^\"]*)\"");
+                            QStringList pathsList;
+                            int pos = 0;
+                            while ((pos = reg.indexIn(command, pos)) != -1)
+                            {
+                               pathsList << reg.cap(1);
+                               pos += reg.matchedLength();
+                            }
+                            if(!pathsList.isEmpty()) {
+                                if(pathsList.length() >= 2) {
+                                    QString outputPath = pathsList[1];
+                                    QFileInfo outputFileInfo(pathsList[1]);
+                                    QFileInfo clientFileInfo(pathsList[0]);
+                                    if(outputFileInfo.fileName().isEmpty() || !outputFileInfo.fileName().contains(".")) {
+                                        outputPath = QDir::cleanPath(pathsList[1]+ QDir::separator() + clientFileInfo.fileName());
+                                    }
+                                    fileManager.prepareReceiveFile(outputPath);
+                                    this->server->sendStringPacket(this->server->getClients().at(i), "get:" + pathsList[0]);
+                                }
+                                else {
+                                    debug("Wrong path format!");
+                                    debug("Syntax: "+getCommandFromName(command).syntax());
+                                }
+
+                            }
+                            else {
+                                QString outputPath = splitCmd[3];
+                                QFileInfo outputFileInfo(splitCmd[3]);
+                                QFileInfo clientFileInfo(splitCmd[2]);
+                                if(outputFileInfo.fileName().isEmpty() || !outputFileInfo.fileName().contains(".")) {
+                                    outputPath = QDir::cleanPath(splitCmd[3]+ QDir::separator() + clientFileInfo.fileName());
+                                }
+                                fileManager.prepareReceiveFile(outputPath);
+                                this->server->sendStringPacket(this->server->getClients().at(i), "get:" + splitCmd[2]);
                             }
                             return;
                         }
